@@ -1,0 +1,25 @@
+# SnouliBedrockBridge - Hub
+#
+# Der HTTP-Server liefert version.json, pack.mcpack und mappings.json an die
+# Geyser-Extension auf dem Proxy. Der Port muss in G-Portal frei sein.
+http:
+  bind: 0.0.0.0
+  port: 25887
+  # Wird beim ersten Start automatisch durch einen Zufallswert ersetzt.
+  # Denselben Wert in die config.yml der Geyser-Extension eintragen.
+  token: "LANGER-ZUFALLSWERT"
+
+# Nach jedem /iazip (sobald sich output/generated.zip aendert) automatisch neu bauen.
+auto-build-on-iazip: true
+
+# Name des Pakets in der Bedrock-Paketliste.
+pack-name: "Snouli.net"
+
+# Namespaces, die nicht umgewandelt werden, z. B. Test-Inhalte: [tutorial]
+skip-namespaces: []
+
+# Pfad zum fertigen Java-Paket von ItemsAdder (relativ zum Server-Ordner).
+itemsadder-pack: plugins/ItemsAdder/output/generated.zip
+
+# Font-Bilder, die groesser sind (Pixel), gelten als GUI-Bilder und werden uebersprungen.
+max-glyph-size: 64

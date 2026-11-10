@@ -1,0 +1,6 @@
+id: snoulibedrockbridge
+name: SnouliBedrockBridge
+main: net.snouli.bedrockbridge.geyser.BedrockBridgeExtension
+api: 2.9.0
+version: ${project.version}
+authors: [Snouli.net]

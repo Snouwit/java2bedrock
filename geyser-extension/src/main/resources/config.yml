@@ -1,0 +1,13 @@
+# SnouliBedrockBridge - Geyser-Extension (Proxy)
+#
+# Adresse des HTTP-Servers vom Hub-Plugin und dasselbe Token wie in
+# plugins/SnouliBedrockBridge/config.yml (http.token) auf dem Hub.
+url: http://176.57.181.237:25887
+token: LANGER-ZUFALLSWERT
+
+# Wie oft (Sekunden) nach einer neuen Version gefragt wird.
+check-interval-seconds: 60
+
+# Bedrock-Spieler mit dieser Permission bekommen die Meldung
+# "Neue Bedrock-Items - Proxy-Neustart noetig".
+notify-permission: snouli.bedrock.admin

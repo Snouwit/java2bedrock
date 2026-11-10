@@ -1,0 +1,15 @@
+name: SnouliBedrockBridge
+version: '${project.version}'
+main: net.snouli.bedrockbridge.hub.BedrockBridgePlugin
+api-version: '1.21'
+description: Baut aus dem ItemsAdder-Paket automatisch ein Bedrock-Paket samt Geyser-Mappings.
+softdepend: [ItemsAdder]
+commands:
+  bedrockpack:
+    description: Bedrock-Paket bauen und Status anzeigen
+    usage: /bedrockpack <build|status|report>
+    permission: snouli.bedrock.admin
+permissions:
+  snouli.bedrock.admin:
+    description: Darf /bedrockpack benutzen und bekommt Hinweise zu Proxy-Neustarts.
+    default: op
