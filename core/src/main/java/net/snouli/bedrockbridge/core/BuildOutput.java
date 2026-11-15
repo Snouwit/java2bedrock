@@ -4,7 +4,8 @@ import com.google.gson.JsonObject;
 
 /**
  * @param pack     Bedrock pack files (without manifest)
- * @param mappings Geyser mappings bundle: {@code {"items": <v2 file>, "blocks": <v1 file>}}
+ * @param mappings Geyser mappings bundle: {@code {"items": <v2 file>, "blocks": <v1 file>}}, plus
+ *                 {@code "display_entities"} (YAML text for GeyserDisplayEntity) when there are 3D models
  */
 public record BuildOutput(BedrockPack pack, JsonObject mappings, Report report) {
 }

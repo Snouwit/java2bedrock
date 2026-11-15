@@ -14,6 +14,7 @@ public final class PackBuilder {
         BedrockPack pack = new BedrockPack();
         JsonObject items;
         JsonObject blocks;
+        String displayEntities;
 
         try (JavaPack javaPack = JavaPack.open(input.javaPack())) {
             Models models = new Models(javaPack);
@@ -24,7 +25,9 @@ public final class PackBuilder {
                 : input.items().size() + " Items aus der ItemsAdder-API.");
 
             new GlyphConverter(javaPack, input, report).convert(pack);
-            items = new ItemConverter(javaPack, models, input, report).convert(pack);
+            ItemConverter itemConverter = new ItemConverter(javaPack, models, input, report);
+            items = itemConverter.convert(pack);
+            displayEntities = itemConverter.displayEntityMappings();
             blocks = new BlockConverter(javaPack, models, input, report).convert(pack);
         }
 
@@ -39,6 +42,11 @@ public final class PackBuilder {
         JsonObject mappings = new JsonObject();
         mappings.add("items", itemsFile);
         mappings.add("blocks", blocksFile);
+        if (displayEntities != null) {
+            mappings.addProperty("display_entities", displayEntities);
+            report.note("3D-Modelle an Item-Displays (Moebel) brauchen auf dem Proxy zusaetzlich die Geyser-Extension"
+                + " GeyserDisplayEntity; Moebel auf Ruestungsstaendern und 3D-Items in der Hand funktionieren ohne sie.");
+        }
         return new BuildOutput(pack, mappings, report);
     }
 }

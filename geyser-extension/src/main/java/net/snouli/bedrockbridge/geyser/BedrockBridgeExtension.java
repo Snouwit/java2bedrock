@@ -36,6 +36,8 @@ public class BedrockBridgeExtension implements Extension {
 
     private static final String RESTART_MESSAGE = "Neue Bedrock-Items - Proxy-Neustart noetig";
     private static final String PLACEHOLDER_TOKEN = "LANGER-ZUFALLSWERT";
+    /** Community extension that makes Java item displays visible; needed for furniture on item displays. */
+    private static final String DISPLAY_EXTENSION_ID = "geyserdisplayentity";
 
     private BridgeSync sync;
     private String permission = "snouli.bedrock.admin";
@@ -74,7 +76,10 @@ public class BedrockBridgeExtension implements Extension {
         }
 
         Path mappingsFolder = geyserApi().configDirectory().resolve("custom_mappings");
-        sync = new BridgeSync(dataFolder(), mappingsFolder, url, token, Duration.ofSeconds(5));
+        boolean displayExtension = hasDisplayExtension();
+        Path displayMappings = displayExtension
+            ? dataFolder().resolveSibling(DISPLAY_EXTENSION_ID).resolve("Mappings") : null;
+        sync = new BridgeSync(dataFolder(), mappingsFolder, displayMappings, url, token, Duration.ofSeconds(5));
 
         // Fetch once before Geyser reads custom_mappings, so a restart always picks up the newest items.
         try {
@@ -90,6 +95,10 @@ public class BedrockBridgeExtension implements Extension {
         }
         loadedMappingsSha1 = sync.mappingsSha1();
         sync.deleteOldPacks();
+        if (sync.hasDisplayEntities() && !displayExtension) {
+            logger().warning("Das Paket enthaelt Moebel/3D-Modelle. Moebel auf Item-Displays sieht Bedrock nur mit der"
+                + " Extension GeyserDisplayEntity (in denselben extensions-Ordner legen). Ohne sie bleiben sie unsichtbar.");
+        }
     }
 
     @Subscribe
@@ -115,6 +124,14 @@ public class BedrockBridgeExtension implements Extension {
     @Subscribe
     public void onRegisterPermissions(GeyserRegisterPermissionsEvent event) {
         event.register(permission, TriState.NOT_SET);
+    }
+
+    private boolean hasDisplayExtension() {
+        try {
+            return geyserApi().extensionManager().extension(DISPLAY_EXTENSION_ID) != null;
+        } catch (Throwable t) {
+            return false;
+        }
     }
 
     private void poll() {

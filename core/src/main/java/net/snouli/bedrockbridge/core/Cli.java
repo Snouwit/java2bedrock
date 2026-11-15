@@ -19,7 +19,7 @@ public final class Cli {
         String name = args.length > 2 ? args[2] : "Snouli.net";
         BuildInput defaults = BuildInput.packOnly(Path.of(args[0]), name);
         BuildInput input = new BuildInput(defaults.javaPack(), name, defaults.skipNamespaces(), defaults.items(),
-            defaults.fontImages(), defaults.maxGlyphSize(), System.out::println);
+            defaults.fontImages(), defaults.maxGlyphSize(), defaults.models(), System.out::println);
 
         BuildOutput built = PackBuilder.build(input);
         DistStore store = new DistStore(output);

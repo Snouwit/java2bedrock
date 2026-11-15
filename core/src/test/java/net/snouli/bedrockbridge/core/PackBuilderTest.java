@@ -115,7 +115,7 @@ class PackBuilderTest {
     @Test
     void outsidePrivateUseAreaIsLogged() throws IOException {
         List<String> log = new ArrayList<>();
-        PackBuilder.build(new BuildInput(zip, "Test", Set.of(), List.of(), Map.of(), 64, log::add));
+        PackBuilder.build(new BuildInput(zip, "Test", Set.of(), List.of(), Map.of(), 64, ModelOptions.defaults(), log::add));
         assertEquals(1, log.size());
         assertTrue(log.get(0).contains("U+00E9"));
     }
@@ -162,8 +162,6 @@ class PackBuilderTest {
 
     @Test
     void unsupportedItemsAreSkippedWithReasons() {
-        assertNull(item("minecraft:paper", 10001));
-        assertTrue(skipReason(Report.Kind.ITEM, "CMD 10001").contains("3D-Modell"));
         assertNull(item("minecraft:paper", 10002));
         assertTrue(skipReason(Report.Kind.ITEM, "CMD 10002").contains("Vanilla-Textur"));
         assertNull(item("minecraft:paper", 10003));
@@ -238,7 +236,7 @@ class PackBuilderTest {
             new IaItem("blocks:ruby_block", "Rubinblock", "minecraft:paper", 10004, null, true, false,
                 "minecraft:note_block[instrument=banjo,note=3,powered=false]"));
         BuildOutput built = PackBuilder.build(new BuildInput(zip, "Test", Set.of(), items,
-            Map.of("ranks:owner", ""), 64, message -> {}));
+            Map.of("ranks:owner", ""), 64, ModelOptions.defaults(), message -> {}));
 
         JsonObject mapped = built.mappings().getAsJsonObject("items").getAsJsonObject("items");
         JsonObject coin = mapped.getAsJsonArray("minecraft:paper").get(0).getAsJsonObject();
@@ -250,8 +248,8 @@ class PackBuilderTest {
         assertEquals("shop:gem", gem.get("model").getAsString());
         assertEquals("economy:gem", gem.get("bedrock_identifier").getAsString());
 
-        assertTrue(built.report().skipped(Report.Kind.ITEM).stream()
-            .anyMatch(e -> e.name().startsWith("deco:lamp") && e.detail().contains("Phase 2")));
+        assertTrue(built.report().converted(Report.Kind.MODEL).stream()
+            .anyMatch(e -> e.name().startsWith("deco:lamp") && e.detail().contains("deco:lamp [Moebel")));
         assertTrue(built.report().converted(Report.Kind.GLYPH).stream().anyMatch(e -> e.name().contains("ranks:owner")));
 
         JsonObject ruby = built.mappings().getAsJsonObject("blocks").getAsJsonObject("blocks")
@@ -262,12 +260,14 @@ class PackBuilderTest {
 
     @Test
     void skipNamespacesLeavesContentOut() throws IOException {
-        BuildOutput built = PackBuilder.build(new BuildInput(zip, "Test", Set.of("shop", "ranks"), List.of(),
-            Map.of(), 64, message -> {}));
+        BuildOutput built = PackBuilder.build(new BuildInput(zip, "Test", Set.of("shop", "ranks", "deco"), List.of(),
+            Map.of(), 64, ModelOptions.defaults(), message -> {}));
         assertEquals(0, built.report().convertedCount(Report.Kind.ITEM));
         assertEquals(0, built.report().convertedCount(Report.Kind.BLOCK));
         assertEquals(0, built.report().convertedCount(Report.Kind.GLYPH));
+        assertEquals(0, built.report().convertedCount(Report.Kind.MODEL));
         assertTrue(built.pack().files().isEmpty());
+        assertFalse(built.mappings().has("display_entities"));
     }
 
     @Test

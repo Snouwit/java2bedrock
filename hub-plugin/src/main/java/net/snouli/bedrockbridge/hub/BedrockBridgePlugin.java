@@ -5,6 +5,7 @@ import net.snouli.bedrockbridge.core.BuildInput;
 import net.snouli.bedrockbridge.core.BuildOutput;
 import net.snouli.bedrockbridge.core.DistStore;
 import net.snouli.bedrockbridge.core.IaItem;
+import net.snouli.bedrockbridge.core.ModelOptions;
 import net.snouli.bedrockbridge.core.PackBuilder;
 import net.snouli.bedrockbridge.core.Published;
 import net.snouli.bedrockbridge.core.Report;
@@ -194,11 +195,26 @@ public final class BedrockBridgePlugin extends JavaPlugin {
         }
         BuildInput input = new BuildInput(zip, getConfig().getString("pack-name", "Snouli.net"),
             new HashSet<>(getConfig().getStringList("skip-namespaces")), items, fontImages,
-            getConfig().getInt("max-glyph-size", 64), message -> getLogger().warning(message));
+            getConfig().getInt("max-glyph-size", 64), modelOptions(), message -> getLogger().warning(message));
 
         getLogger().info("Baue Bedrock-Paket (" + reason + ") ...");
         Bukkit.getScheduler().runTaskAsynchronously(this, () -> build(input, signature, requester));
         return true;
+    }
+
+    private ModelOptions modelOptions() {
+        return new ModelOptions(getConfig().getBoolean("models-3d.enabled", true),
+            getConfig().getString("models-3d.display-context", "head"),
+            vector("models-3d.display-rotation"), vector("models-3d.display-translation"));
+    }
+
+    private double[] vector(String path) {
+        List<Double> values = getConfig().getDoubleList(path);
+        double[] result = new double[3];
+        for (int i = 0; i < 3 && i < values.size(); i++) {
+            result[i] = values.get(i);
+        }
+        return result;
     }
 
     /** Runs off the server thread. */
@@ -252,7 +268,8 @@ public final class BedrockBridgePlugin extends JavaPlugin {
         }
         lastReport = report;
         Published current = result.published();
-        String counts = current.glyphs() + " Glyphen, " + current.items() + " Items, " + current.blocks() + " Bloecke";
+        String counts = current.glyphs() + " Glyphen, " + current.items() + " Items, " + current.blocks() + " Bloecke, "
+            + current.models() + " 3D-Modelle";
         if (!result.changed()) {
             lastBuildInfo = "unveraendert (Version " + current.version() + ")";
             getLogger().info("Keine Aenderung - Version " + current.version() + " bleibt (" + counts + ", " + millis + " ms).");
@@ -310,7 +327,7 @@ public final class BedrockBridgePlugin extends JavaPlugin {
                         + " (Paket " + current.packVersion()[0] + "." + current.packVersion()[1] + "." + current.packVersion()[2]
                         + ", " + current.pack().length / 1024 + " KB)");
                     sender.sendMessage(PREFIX + current.glyphs() + " Glyphen, " + current.items() + " Items, "
-                        + current.blocks() + " Bloecke");
+                        + current.blocks() + " Bloecke, " + current.models() + " 3D-Modelle/Moebel");
                 }
                 sender.sendMessage(PREFIX + "Letzter Build: " + (building.get() ? "laeuft gerade" : lastBuildInfo));
                 sender.sendMessage(PREFIX + "HTTP-Server: " + (httpServer != null ? "Port " + httpServer.port() : ChatColor.RED + "nicht gestartet"));

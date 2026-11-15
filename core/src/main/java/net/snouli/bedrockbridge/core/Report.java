@@ -11,7 +11,8 @@ public final class Report {
     public enum Kind {
         GLYPH("Font-Bilder (Glyphen)"),
         ITEM("Items"),
-        BLOCK("Bloecke");
+        BLOCK("Bloecke"),
+        MODEL("3D-Modelle und Moebel");
 
         final String title;
 

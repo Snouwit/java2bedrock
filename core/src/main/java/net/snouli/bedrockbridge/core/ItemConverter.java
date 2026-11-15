@@ -38,6 +38,7 @@ final class ItemConverter {
     private final Models models;
     private final BuildInput input;
     private final Report report;
+    private final Model3dConverter model3d;
 
     private final Map<String, IaItem> byCustomModelData = new HashMap<>();
     private final Set<String> usedIdentifiers = new HashSet<>();
@@ -50,6 +51,7 @@ final class ItemConverter {
         this.models = models;
         this.input = input;
         this.report = report;
+        this.model3d = new Model3dConverter(models, input, report);
         for (IaItem item : input.items()) {
             if (item.customModelData() != null && item.material() != null) {
                 byCustomModelData.putIfAbsent(Id.parse(item.material()) + "#" + item.customModelData(), item);
@@ -140,6 +142,8 @@ final class ItemConverter {
             convert(out, candidate, ia);
         }
 
+        model3d.writeDisplayEntity(out);
+
         if (!textureData.isEmpty()) {
             JsonObject data = new JsonObject();
             for (Map.Entry<String, String> entry : textureData.entrySet()) {
@@ -173,7 +177,7 @@ final class ItemConverter {
             return;
         }
         Id model = candidate.model();
-        String namespace = ia != null ? Id.parse(ia.namespacedId()).namespace() : model.namespace();
+        String namespace = identity(ia, model).namespace();
         if (input.skipNamespaces().contains(namespace) || input.skipNamespaces().contains(model.namespace())) {
             report.skipped(Report.Kind.ITEM, label, "Namespace in skip-namespaces");
             return;
@@ -188,19 +192,13 @@ final class ItemConverter {
             report.skipped(Report.Kind.ITEM, label, "Modell " + model + " fehlt im Paket");
             return;
         }
-        if (ia != null && ia.furniture()) {
-            report.skipped(Report.Kind.ITEM, label, "Moebel - kommt in Phase 2");
-            return;
-        }
-
         List<Id> layers = new ArrayList<>();
         boolean handheld = false;
         String kind;
         if (resolved.elements != null) {
             Map<String, Id> faces = BlockConverter.cubeFaces(models, resolved);
             if (faces == null) {
-                report.skipped(Report.Kind.ITEM, label, "3D-Modell (" + resolved.elements.size()
-                    + " Elemente) - 3D-Items/Moebel kommen spaeter");
+                convert3d(out, candidate, ia, resolved, label);
                 return;
             }
             layers.add(faces.getOrDefault("north", faces.values().iterator().next()));
@@ -258,7 +256,63 @@ final class ItemConverter {
             g.dispose();
         }
 
-        Id identity = ia != null ? Id.parse(ia.namespacedId()) : new Id(model.namespace(), model.name());
+        Id identity = identity(ia, model);
+        String identifier = allocateIdentifier(identity, candidate);
+        String iconName = putIcon(out, identifier, icon);
+        addDefinition(candidate, ia, identity, identifier, iconName, handheld);
+
+        report.converted(Report.Kind.ITEM, label, identifier + " [" + kind + "]");
+        if (images.size() > 1) {
+            report.warning(Report.Kind.ITEM, label, images.size() + " Textur-Ebenen wurden zu einem Icon zusammengelegt"
+                + " (Bedrock-Icons haben eine Ebene; einfaerbbare Ebenen bleiben ungefaerbt).");
+        }
+        if (animated) {
+            report.warning(Report.Kind.ITEM, label, "animierte Textur: nur das erste Bild wird verwendet.");
+        }
+    }
+
+    /** @return the mappings file for the GeyserDisplayEntity extension, or {@code null} without 3D models */
+    String displayEntityMappings() {
+        return model3d.displayEntityMappings();
+    }
+
+    private void convert3d(BedrockPack out, Candidate candidate, IaItem ia, Models.Resolved resolved, String label)
+        throws IOException {
+        if (!input.models().enabled()) {
+            report.skipped(Report.Kind.MODEL, label, "3D-Modelle sind abgeschaltet (models-3d.enabled)");
+            return;
+        }
+        Model3dConverter.Prepared prepared = model3d.prepare(resolved, label);
+        if (prepared == null) {
+            return;
+        }
+        Id identity = identity(ia, resolved.id);
+        String identifier = allocateIdentifier(identity, candidate);
+        String iconName = putIcon(out, identifier, model3d.icon(prepared));
+        model3d.write(out, prepared, identifier, candidate.vanillaItem());
+        addDefinition(candidate, ia, identity, identifier, iconName, false);
+
+        report.converted(Report.Kind.MODEL, label, identifier + " [" + (ia != null && ia.furniture() ? "Moebel" : "3D-Modell")
+            + ", " + prepared.summary() + "]");
+        for (String warning : prepared.warnings()) {
+            report.warning(Report.Kind.MODEL, label, warning);
+        }
+    }
+
+    private static Id identity(IaItem ia, Id model) {
+        if (ia != null) {
+            return Id.parse(ia.namespacedId());
+        }
+        // ItemsAdder wraps furniture models as _iainternal:item_context/<namespace>/...
+        String[] parts = model.path().split("/");
+        if (model.namespace().equals("_iainternal") && parts.length > 2 && parts[0].equals("item_context")) {
+            return new Id(parts[1], model.name());
+        }
+        return new Id(model.namespace(), model.name());
+    }
+
+    /** Picks a Bedrock item identifier that is unique within this build. */
+    private String allocateIdentifier(Id identity, Candidate candidate) {
         String bedrockNamespace = Id.sanitize(identity.namespace());
         if (bedrockNamespace.equals("minecraft")) {
             bedrockNamespace = "snouli";
@@ -272,11 +326,19 @@ final class ItemConverter {
                 identifier = bedrockNamespace + ":" + bedrockPath + "_" + candidate.vanillaItem().path() + suffix + "_" + i;
             }
         }
+        return identifier;
+    }
+
+    private String putIcon(BedrockPack out, String identifier, BufferedImage icon) throws IOException {
         String iconName = identifier.replace(':', '_');
         String texturePath = "textures/items/" + identifier.replace(':', '/');
         out.put(texturePath + ".png", Images.png(icon));
         textureData.put(iconName, texturePath);
+        return iconName;
+    }
 
+    private void addDefinition(Candidate candidate, IaItem ia, Id identity, String identifier, String iconName,
+                               boolean handheld) {
         JsonObject options = new JsonObject();
         options.addProperty("icon", iconName);
         options.addProperty("allow_offhand", true);
@@ -296,15 +358,6 @@ final class ItemConverter {
         definition.addProperty("display_name", displayName(ia, identity));
         definition.add("bedrock_options", options);
         definitions.computeIfAbsent(candidate.vanillaItem().toString(), k -> new JsonArray()).add(definition);
-
-        report.converted(Report.Kind.ITEM, label, identifier + " [" + kind + "]");
-        if (images.size() > 1) {
-            report.warning(Report.Kind.ITEM, label, images.size() + " Textur-Ebenen wurden zu einem Icon zusammengelegt"
-                + " (Bedrock-Icons haben eine Ebene; einfaerbbare Ebenen bleiben ungefaerbt).");
-        }
-        if (animated) {
-            report.warning(Report.Kind.ITEM, label, "animierte Textur: nur das erste Bild wird verwendet.");
-        }
     }
 
     private static String displayName(IaItem ia, Id identity) {

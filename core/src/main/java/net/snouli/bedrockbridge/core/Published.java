@@ -6,5 +6,5 @@ package net.snouli.bedrockbridge.core;
  */
 public record Published(int version, String builtAt, int[] packVersion, byte[] pack, String packSha1,
                         byte[] mappings, String mappingsSha1, byte[] versionJson,
-                        int glyphs, int items, int blocks) {
+                        int glyphs, int items, int blocks, int models) {
 }

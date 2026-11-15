@@ -49,6 +49,8 @@ public final class Models {
         public final List<Id> parents = new ArrayList<>();
         /** The elements of the nearest model in the chain that defines any, or {@code null}. */
         public JsonArray elements;
+        /** The {@code display} transforms of the nearest model in the chain that defines any, or {@code null}. */
+        public JsonObject display;
         /** False if the model itself is not part of the pack (i.e. it is a vanilla model). */
         public boolean inPack;
 
@@ -92,6 +94,9 @@ public final class Models {
             }
             if (resolved.elements == null && model.get("elements") instanceof JsonArray elements && !elements.isEmpty()) {
                 resolved.elements = elements;
+            }
+            if (resolved.display == null && model.get("display") instanceof JsonObject display) {
+                resolved.display = display;
             }
             current = model.has("parent") && model.get("parent").isJsonPrimitive()
                 ? Id.parse(model.get("parent").getAsString()) : null;

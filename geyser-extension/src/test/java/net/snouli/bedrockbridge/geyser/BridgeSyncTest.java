@@ -77,7 +77,7 @@ class BridgeSyncTest {
     }
 
     private BridgeSync sync(String token) {
-        return new BridgeSync(dir.resolve("data"), dir.resolve("custom_mappings"),
+        return new BridgeSync(dir.resolve("data"), dir.resolve("custom_mappings"), dir.resolve("gde/Mappings"),
             "http://127.0.0.1:" + server.getAddress().getPort() + "/", token, TIMEOUT);
     }
 
@@ -167,6 +167,37 @@ class BridgeSyncTest {
         Files.delete(dir.resolve("custom_mappings").resolve(BridgeSync.BLOCK_MAPPINGS));
         assertTrue(sync.check(TIMEOUT).mappingsChanged());
         assertTrue(Files.exists(dir.resolve("custom_mappings").resolve(BridgeSync.BLOCK_MAPPINGS)));
+    }
+
+    @Test
+    void displayEntityMappingsAreWrittenAndRemoved() throws Exception {
+        Path file = dir.resolve("gde/Mappings").resolve(BridgeSync.DISPLAY_MAPPINGS);
+        String withFurniture = MAPPINGS_A.substring(0, MAPPINGS_A.length() - 1)
+            + ",\"display_entities\":\"mappings:\\n  bench:\\n    type: \\\"minecraft:paper\\\"\\n\"}";
+        publish(1, "pack-one", withFurniture);
+        BridgeSync sync = sync("abc+1");
+        sync.check(TIMEOUT);
+        assertTrue(sync.hasDisplayEntities());
+        assertEquals("mappings:\n  bench:\n    type: \"minecraft:paper\"\n", Files.readString(file));
+        assertTrue(sync("abc+1").hasDisplayEntities(), "bleibt nach Neustart bekannt");
+
+        // deleted by hand: restored on the next check
+        Files.delete(file);
+        assertTrue(sync.check(TIMEOUT).mappingsChanged());
+        assertTrue(Files.exists(file));
+
+        publish(2, "pack-one", MAPPINGS_A);
+        sync.check(TIMEOUT);
+        assertFalse(sync.hasDisplayEntities());
+        assertFalse(Files.exists(file));
+
+        // without GeyserDisplayEntity nothing is written outside our own folders
+        BridgeSync noExtension = new BridgeSync(dir.resolve("data2"), dir.resolve("custom_mappings2"), null,
+            "http://127.0.0.1:" + server.getAddress().getPort(), "abc+1", TIMEOUT);
+        publish(3, "pack-one", withFurniture);
+        noExtension.check(TIMEOUT);
+        assertTrue(noExtension.hasDisplayEntities());
+        assertFalse(Files.exists(file));
     }
 
     @Test

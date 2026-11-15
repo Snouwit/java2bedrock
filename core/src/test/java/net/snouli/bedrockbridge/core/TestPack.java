@@ -102,6 +102,29 @@ final class TestPack {
         pack.text("assets/shop/models/item/stone_thing.json", """
             {"parent":"item/generated","textures":{"layer0":"ia:2"}}""");
 
+        // 3D models: own + client textures, a rotated element, explicit UVs, display transforms
+        pack.text("new_overlay/assets/minecraft/items/stick.json", """
+            {"model":{"type":"range_dispatch","property":"custom_model_data","entries":[
+              {"threshold":1,"model":{"type":"model","model":"_iainternal:item_context/deco/furniture/bench"}},
+              {"threshold":2,"model":{"type":"model","model":"deco:furniture/unknown_texture"}},
+              {"threshold":3,"model":{"type":"model","model":"deco:furniture/tilted"}}]}}""");
+        pack.text("assets/_iainternal/models/item_context/deco/furniture/bench.json", """
+            {"textures":{"wood":"minecraft:block/spruce_planks","glow":"minecraft:block/sea_lantern","metal":"ia:0"},
+             "display":{"head":{"translation":[0,13,0],"scale":[1,1,1]},
+                        "thirdperson_righthand":{"rotation":[10,20,30],"translation":[1,2,3],"scale":[0.5,0.5,0.5]}},
+             "elements":[
+               {"from":[0,0,2],"to":[32,4,14],"faces":{"up":{"texture":"#wood"},"north":{"texture":"#wood"},
+                 "down":{"texture":"#metal","uv":[0,0,8,4]}}},
+               {"from":[7,4,7],"to":[9,6,9],"rotation":{"angle":22.5,"axis":"y","origin":[8,5,8]},
+                 "faces":{"north":{"texture":"#glow"},"up":{"texture":"#glow","uv":[0,0,16,16],"rotation":90}}}]}""");
+        pack.text("assets/deco/models/furniture/unknown_texture.json", """
+            {"textures":{"0":"minecraft:block/this_does_not_exist"},
+             "elements":[{"from":[0,0,0],"to":[8,8,8],"faces":{"up":{"texture":"#0"}}}]}""");
+        pack.text("assets/deco/models/furniture/tilted.json", """
+            {"textures":{"0":"ia:0"},
+             "elements":[{"from":[0,0,0],"to":[8,8,8],"rotation":{"x":10,"y":20,"z":0,"origin":[8,8,8]},
+               "faces":{"up":{"texture":"#0"}}}]}""");
+
         // Legacy overrides on an item without item definition
         pack.text("assets/minecraft/models/item/diamond_sword.json", """
             {"parent":"minecraft:item/handheld","textures":{"layer0":"minecraft:item/diamond_sword"},"overrides":[

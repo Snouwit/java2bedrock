@@ -7,8 +7,9 @@ Macht ItemsAdder-Inhalte für Bedrock-Spieler (Geyser) sichtbar – automatisch 
 | **SnouliBedrockBridge** (Paper-Plugin) | Hub (Paper, Java 21+) | `hub-plugin/target/SnouliBedrockBridge-1.0.0.jar` |
 | **SnouliBedrockBridge-Geyser** (Geyser-Extension) | Proxy (Geyser-BungeeCord 2.12.x) | `geyser-extension/target/SnouliBedrockBridge-Geyser-1.0.0.jar` |
 
-Stand: **Phase 1** – Font-Bilder (Rang-Icons), flache 2D-Items, einfache Würfel-Blöcke.
-Möbel und 3D-Modelle (Phase 2) werden übersprungen und im Bericht aufgelistet.
+Stand: **Phase 1** (Font-Bilder/Rang-Icons, flache 2D-Items, einfache Würfel-Blöcke) und
+**Phase 2** (3D-Modelle und Möbel). Für Möbel an Item-Displays braucht der Proxy zusätzlich die
+Community-Extension **GeyserDisplayEntity**, siehe [Möbel](#möbel-und-3d-modelle-phase-2).
 
 ## Ablauf
 
@@ -16,7 +17,8 @@ Möbel und 3D-Modelle (Phase 2) werden übersprungen und im Bericht aufgelistet.
 2. Das Hub-Plugin bemerkt die neue Datei (es prüft alle 2 s Grösse und Änderungszeit und wartet, bis
    die Datei fertig geschrieben ist), liest das Paket und die ItemsAdder-API und baut asynchron:
    - `pack.mcpack` – Bedrock-Ressourcenpaket (gleiche UUID, neue Version bei jeder Änderung)
-   - `mappings.json` – Geyser-Mappings (Items im Format v2, Blöcke im Format v1)
+   - `mappings.json` – Geyser-Mappings (Items im Format v2, Blöcke im Format v1) und die
+     Möbel-Liste für GeyserDisplayEntity
    - `version.json` – Versionsnummer, Zeitstempel, SHA-1 beider Dateien
    - `report.txt` – was umgewandelt und was warum übersprungen wurde
 3. Der eingebaute HTTP-Server liefert die drei Dateien aus (nur GET, nur mit Token).
@@ -50,6 +52,11 @@ pack-name: "Snouli.net"
 skip-namespaces: []             # z. B. [tutorial]
 itemsadder-pack: plugins/ItemsAdder/output/generated.zip
 max-glyph-size: 64              # grössere Font-Bilder gelten als GUI-Bild
+models-3d:
+  enabled: true
+  display-context: head         # display-Eintrag des Modells für Item-Displays (oder none)
+  display-rotation: [0, 0, 0]   # Korrektur, falls Möbel auf Bedrock verdreht stehen
+  display-translation: [0, 0, 0]
 ```
 
 ### 2. Proxy (176.57.168.151)
@@ -95,15 +102,54 @@ werden an dieselbe Stelle in `font/glyph_XX.png` gezeichnet (16×16 Raster). Gre
 **Items.** Items mit Custom-Model-Data (aus `assets/minecraft/items/*.json` bzw. alten `overrides`) und Items
 mit `minecraft:item_model`-Component (über die ItemsAdder-API). Flache Modelle (`item/generated`,
 `item/handheld`) bekommen ihr Icon; mehrere Ebenen werden zusammengelegt. Block-Items bekommen ein flaches
-Icon. 3D-Modelle und Möbel werden übersprungen. Getragene Rüstungs-Texturen sind noch nicht dabei.
+Icon. Getragene Rüstungs-Texturen sind noch nicht dabei.
 
 **Blöcke.** Zustände von `note_block`, `brown_mushroom_block`, `red_mushroom_block`, `mushroom_stem` und
 `chorus_plant`, deren Modell ein voller Würfel mit 1–6 Texturen ist. Alles andere wird übersprungen.
 
-Es werden nur Texturen aus dem ItemsAdder-Paket verwendet, nie Mojang-Texturen. Items/Blöcke, die auf
-Vanilla-Texturen zeigen, werden übersprungen.
+Es werden nur Texturen aus dem ItemsAdder-Paket kopiert, nie Mojang-Texturen. 2D-Items und Blöcke, die auf
+Vanilla-Texturen zeigen, werden übersprungen; 3D-Modelle verweisen stattdessen auf die Textur, die Bedrock
+selbst mitbringt.
 
 ItemsAdders Paket-Schutz (absichtlich falsche ZIP- und PNG-Prüfsummen) wird gelesen.
+
+## Möbel und 3D-Modelle (Phase 2)
+
+Jedes 3D-Item-Modell (Java-Modell mit `elements`) wird zu einem Bedrock-Custom-Item mit **Attachable**:
+Geometrie aus den Würfeln des Modells, dazu Animationen für Hand, Kopf und Item-Display. Im Inventar
+erscheint eine vereinfachte Vorschau als Icon.
+
+| Wo das Modell erscheint | Was es braucht |
+|---|---|
+| Spieler hält das Item | nichts weiter |
+| Möbel auf einem Rüstungsständer (Kopf) | nichts weiter |
+| Möbel an einem **Item-Display** (ItemsAdder-Standard) | **GeyserDisplayEntity** auf dem Proxy |
+
+Geyser zeigt Item-Displays von sich aus nicht an, und über die offizielle Geyser-API lassen sie sich nicht
+ersetzen (Geyser verwirft sie vor dem Spawn-Event). GeyserDisplayEntity
+(<https://github.com/GeyserExtensionists/GeyserDisplayEntity>, AGPL-3.0) löst das: sie spawnt ein Bedrock-Entity
+`geyser:item_display`, das das Item trägt, und überträgt Position, Drehung und Skalierung. Wir liefern dazu:
+
+- die Client-Definition von `geyser:item_display` im Bedrock-Paket (passend zu unseren Attachables),
+- `Mappings/snouli_bedrock_bridge.yml` im Ordner der Extension (schreibt unsere Geyser-Extension automatisch).
+
+**Installation:** `GeyserDisplayEntity-<version>.jar` nach `plugins/Geyser-BungeeCord/extensions/` legen, Proxy
+starten, dann Proxy **noch einmal** neu starten (beim ersten Start gibt es die Mapping-Datei evtl. noch nicht).
+In `extensions/geyserdisplayentity/config.yml` muss `hand: false` bleiben (Standard). Kein zweites Paket mit
+einer eigenen `geyser:item_display`-Definition verwenden.
+
+**Texturen:** Mehrere Texturen pro Modell sind erlaubt. Vanilla-Texturen (z. B. `block/spruce_planks`) werden
+auf den Bedrock-Namen umgerechnet (`textures/blocks/planks_spruce`) und nicht kopiert. Unbekannte Namen landen
+im Bericht.
+
+**Grenzen:** nur Würfel-Elemente, Drehung um eine Achse pro Element; `rescale` und Tint werden ignoriert.
+
+**Wenn Möbel falsch stehen** (verdreht, zu hoch/tief): `models-3d.display-rotation` bzw.
+`display-translation` in der Hub-Config anpassen, `/bedrockpack build`, Proxy neu starten. Zeigt ItemsAdder
+das Möbel mit einem anderen Display-Kontext, `display-context` anpassen (`none` = Modell ohne Transformation).
+
+**Licht und Sitzen:** Licht kommt von ItemsAdders Licht-Block und ist auf Bedrock von selbst da. Zum Sitzen
+setzt ItemsAdder den Spieler auf ein unsichtbares Entity; das übersetzt Geyser selbst – bitte testen.
 
 ## Bauen
 

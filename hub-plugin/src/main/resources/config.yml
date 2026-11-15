@@ -23,3 +23,15 @@ itemsadder-pack: plugins/ItemsAdder/output/generated.zip
 
 # Font-Bilder, die groesser sind (Pixel), gelten als GUI-Bilder und werden uebersprungen.
 max-glyph-size: 64
+
+# 3D-Modelle und Moebel (Phase 2).
+models-3d:
+  enabled: true
+  # Welcher "display"-Eintrag des Java-Modells gilt, wenn ein Item-Display das Moebel zeigt:
+  # head, fixed, ground, ... oder none. Muss zur ItemsAdder-Einstellung des Moebels passen.
+  display-context: head
+  # Korrekturen fuer Moebel an Item-Displays, falls sie auf Bedrock verdreht oder verschoben
+  # erscheinen. Drehung in Grad [x, y, z], Verschiebung in Bloecken [x, y, z].
+  # Beispiel: Moebel stehen verkehrt herum -> display-rotation: [0, 180, 0]
+  display-rotation: [0, 0, 0]
+  display-translation: [0, 0, 0]

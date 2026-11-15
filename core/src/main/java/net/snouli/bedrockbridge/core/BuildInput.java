@@ -13,12 +13,14 @@ import java.util.function.Consumer;
  * @param items         data from the ItemsAdder API; empty = derive everything from the zip alone
  * @param fontImages    ItemsAdder font image id to its character(s), only used for nicer report names
  * @param maxGlyphSize  font images larger than this (pixels) are treated as GUI images and skipped
+ * @param models        settings for 3D models and furniture
  * @param log           receives warnings that should also show up in the server log
  */
 public record BuildInput(Path javaPack, String packName, Set<String> skipNamespaces, List<IaItem> items,
-                         Map<String, String> fontImages, int maxGlyphSize, Consumer<String> log) {
+                         Map<String, String> fontImages, int maxGlyphSize, ModelOptions models,
+                         Consumer<String> log) {
 
     public static BuildInput packOnly(Path javaPack, String packName) {
-        return new BuildInput(javaPack, packName, Set.of(), List.of(), Map.of(), 64, message -> {});
+        return new BuildInput(javaPack, packName, Set.of(), List.of(), Map.of(), 64, ModelOptions.defaults(), message -> {});
     }
 }

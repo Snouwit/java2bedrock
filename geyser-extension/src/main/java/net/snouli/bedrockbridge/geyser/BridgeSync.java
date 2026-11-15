@@ -31,6 +31,8 @@ public final class BridgeSync {
     /** File names inside Geyser's {@code custom_mappings} folder. */
     public static final String ITEM_MAPPINGS = "snouli_bedrock_bridge_items.json";
     public static final String BLOCK_MAPPINGS = "snouli_bedrock_bridge_blocks.json";
+    /** File name inside GeyserDisplayEntity's {@code Mappings} folder. */
+    public static final String DISPLAY_MAPPINGS = "snouli_bedrock_bridge.yml";
 
     public record Result(boolean packChanged, boolean mappingsChanged, int version) {}
 
@@ -38,6 +40,7 @@ public final class BridgeSync {
 
     private final Path dataFolder;
     private final Path mappingsFolder;
+    private final Path displayMappingsFolder;
     private final String baseUrl;
     private final String token;
     private final HttpClient client;
@@ -46,10 +49,17 @@ public final class BridgeSync {
     private volatile String packSha1 = "";
     private volatile String mappingsSha1 = "";
     private volatile Path packFile;
+    private volatile boolean displayEntities;
 
-    public BridgeSync(Path dataFolder, Path mappingsFolder, String baseUrl, String token, Duration connectTimeout) {
+    /**
+     * @param displayMappingsFolder the {@code Mappings} folder of the GeyserDisplayEntity extension, or
+     *                              {@code null} if that extension is not installed
+     */
+    public BridgeSync(Path dataFolder, Path mappingsFolder, Path displayMappingsFolder, String baseUrl, String token,
+                      Duration connectTimeout) {
         this.dataFolder = dataFolder;
         this.mappingsFolder = mappingsFolder;
+        this.displayMappingsFolder = displayMappingsFolder;
         this.baseUrl = baseUrl.replaceAll("/+$", "");
         this.token = token;
         this.client = HttpClient.newBuilder().connectTimeout(connectTimeout).build();
@@ -62,6 +72,11 @@ public final class BridgeSync {
 
     public String mappingsSha1() {
         return mappingsSha1;
+    }
+
+    /** @return true if the last downloaded mappings contain 3D models for item displays (furniture) */
+    public boolean hasDisplayEntities() {
+        return displayEntities;
     }
 
     /** @return the downloaded pack, or {@code null} if nothing has been downloaded yet */
@@ -88,6 +103,7 @@ public final class BridgeSync {
             packSha1 = state.get("pack_sha1").getAsString();
             mappingsSha1 = state.get("mappings_sha1").getAsString();
             version = state.get("version").getAsInt();
+            displayEntities = state.has("display_entities") && state.get("display_entities").getAsBoolean();
         } catch (IOException | RuntimeException ignored) {
             // start with an empty cache
         }
@@ -118,7 +134,9 @@ public final class BridgeSync {
         }
 
         boolean packChanged = packFile == null || !remotePackSha1.equals(packSha1);
-        boolean mappingsChanged = !remoteMappingsSha1.equals(mappingsSha1) || !mappingFilesPresent();
+        boolean mappingsChanged = !remoteMappingsSha1.equals(mappingsSha1) || !mappingFilesPresent()
+            || (displayEntities && displayMappingsFolder != null
+                && !Files.isRegularFile(displayMappingsFolder.resolve(DISPLAY_MAPPINGS)));
         if (!packChanged && !mappingsChanged) {
             version = remoteVersion;
             return new Result(false, false, remoteVersion);
@@ -160,6 +178,18 @@ public final class BridgeSync {
             Files.createDirectories(mappingsFolder);
             write(mappingsFolder.resolve(ITEM_MAPPINGS), GSON.toJson(mappings.get("items")).getBytes(StandardCharsets.UTF_8));
             write(mappingsFolder.resolve(BLOCK_MAPPINGS), GSON.toJson(mappings.get("blocks")).getBytes(StandardCharsets.UTF_8));
+            String display = mappings.has("display_entities") && mappings.get("display_entities").isJsonPrimitive()
+                ? mappings.get("display_entities").getAsString() : null;
+            displayEntities = display != null;
+            if (displayMappingsFolder != null) {
+                Path file = displayMappingsFolder.resolve(DISPLAY_MAPPINGS);
+                if (display != null) {
+                    Files.createDirectories(displayMappingsFolder);
+                    write(file, display.getBytes(StandardCharsets.UTF_8));
+                } else {
+                    Files.deleteIfExists(file);
+                }
+            }
             mappingsSha1 = remoteMappingsSha1;
         }
         version = remoteVersion;
@@ -169,6 +199,7 @@ public final class BridgeSync {
         state.addProperty("pack_sha1", packSha1);
         state.addProperty("pack_file", packFile.getFileName().toString());
         state.addProperty("mappings_sha1", mappingsSha1);
+        state.addProperty("display_entities", displayEntities);
         Files.createDirectories(dataFolder);
         write(dataFolder.resolve("state.json"), GSON.toJson(state).getBytes(StandardCharsets.UTF_8));
         return new Result(pack != null, mappings != null, remoteVersion);
