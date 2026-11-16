@@ -751,21 +751,17 @@ final class Model3dConverter {
         yaml.append("# Drehung/Verschiebung stellt man in der config.yml des Hub-Plugins ein (models-3d).\n");
         yaml.append("mappings:\n");
         for (Map.Entry<String, String[]> entry : displayMappings.entrySet()) {
+            // GeyserDisplayEntity only knows y-offset (in blocks); it has no rotation/translation option.
+            double[] translation = options.translationFor(entry.getValue()[1]);
+            double yOffset = translation != null && translation.length == 3 ? translation[1] : 0;
             yaml.append("  ").append(entry.getKey()).append(":\n");
             yaml.append("    type: \"").append(entry.getValue()[0]).append("\"\n");
             yaml.append("    item-identifier: \"").append(entry.getValue()[1]).append("\"\n");
             yaml.append("    displayentityoptions:\n");
-            yaml.append("      y-offset: 0\n");
+            yaml.append("      y-offset: ").append(number(yOffset)).append('\n');
             yaml.append("      vanilla-scale: false\n");
             yaml.append("      vanilla-scale-multiplier: 1\n");
             yaml.append("      hand: false\n");
-            if (nonZero(options.displayRotation())) {
-                yaml.append("      rotation: ").append(list(options.displayRotation())).append('\n');
-            }
-            double[] translation = options.translationFor(entry.getValue()[1]);
-            if (nonZero(translation)) {
-                yaml.append("      translation: ").append(list(translation)).append('\n');
-            }
         }
         return yaml.toString();
     }

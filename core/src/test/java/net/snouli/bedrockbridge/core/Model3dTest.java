@@ -228,14 +228,13 @@ class Model3dTest {
             .getAsJsonObject("bones");
         assertFalse(display.has("geyser_custom_x"), "ohne display-Kontext keine Modell-Transformation");
         String yaml = built.mappings().get("display_entities").getAsString();
-        assertTrue(yaml.contains("rotation: [0, 180, 0]"));
-        assertTrue(yaml.contains("translation: [0, 0.5, 0]"));
+                assertTrue(yaml.contains("y-offset: 0.5"), yaml);
 
         ModelOptions perItem = new ModelOptions(true, "head", new double[3], new double[] {0, 0.5, 0},
             Map.of("bench", new double[] {0, 1.5, 0}));
         String perItemYaml = PackBuilder.build(new BuildInput(zip, "Test", Set.of(), List.of(), Map.of(), 64, perItem, m -> {}))
             .mappings().get("display_entities").getAsString();
-        assertTrue(perItemYaml.contains("translation: [0, 1.5, 0]"), perItemYaml);
+        assertTrue(perItemYaml.contains("y-offset: 1.5"), perItemYaml);
         assertEquals("[0.0, 1.5, 0.0]", java.util.Arrays.toString(perItem.translationFor("snouli:deco/bench")));
         assertEquals("[0.0, 0.5, 0.0]", java.util.Arrays.toString(perItem.translationFor("snouli:deco/lamp")));
 
