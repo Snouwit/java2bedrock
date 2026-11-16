@@ -66,6 +66,7 @@ final class Model3dConverter {
         final int frames;
         final BufferedImage image; // null for textures that only exist on the client
         final JsonArray cubes = new JsonArray();
+        int cells = 1; // width in 16-unit cells (atlas)
 
         Slot(Id source, String bedrockPath, int frames, BufferedImage image) {
             this.source = source;
@@ -235,6 +236,11 @@ final class Model3dConverter {
         }
         List<String> clientTextures = slots.values().stream().filter(s -> s.image == null)
             .map(s -> s.source.path().substring(s.source.path().lastIndexOf('/') + 1)).toList();
+        if (slots.size() > 1 && !clientTextures.isEmpty()) {
+            warnings.add("mehrere Texturen, davon Vanilla-Texturen: auf Bedrock erscheint nur die erste ("
+                + slots.values().iterator().next().source + "). Eigene Texturen ins ItemsAdder-Paket legen,"
+                + " dann werden sie zu einer Textur zusammengelegt.");
+        }
         if (!clientTextures.isEmpty()) {
             warnings.add("nutzt Bedrock-eigene Texturen statt der Java-Vanilla-Texturen: " + String.join(", ", clientTextures)
                 + " (sehen je nach Bedrock-Texturpaket leicht anders aus).");
@@ -250,6 +256,36 @@ final class Model3dConverter {
         }
         VanillaTextures.Texture bedrock = vanilla.resolve(texture);
         return bedrock == null ? null : new Slot(texture, bedrock.path(), bedrock.frames(), null);
+    }
+
+    /** Puts the textures side by side (16x16 units each) and moves every face UV into its cell. */
+    private static Slot atlas(List<Slot> slots, String path) {
+        int resolution = 16;
+        for (Slot slot : slots) {
+            resolution = Math.max(resolution, slot.image.getWidth());
+        }
+        resolution = Math.min(resolution, 256);
+        BufferedImage image = new BufferedImage(resolution * slots.size(), resolution, BufferedImage.TYPE_INT_ARGB);
+        java.awt.Graphics2D g = image.createGraphics();
+        g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION,
+            java.awt.RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+        Slot result = new Slot(slots.get(0).source, path, 1, image);
+        result.cells = slots.size();
+        for (int i = 0; i < slots.size(); i++) {
+            BufferedImage source = slots.get(i).image;
+            int side = Math.min(source.getWidth(), source.getHeight()); // first frame of animated textures
+            g.drawImage(source, i * resolution, 0, (i + 1) * resolution, resolution, 0, 0, side, side, null);
+            for (JsonElement cubeElement : slots.get(i).cubes) {
+                JsonObject cube = cubeElement.getAsJsonObject().deepCopy();
+                for (Map.Entry<String, JsonElement> face : cube.getAsJsonObject("uv").entrySet()) {
+                    JsonArray uv = face.getValue().getAsJsonObject().getAsJsonArray("uv");
+                    uv.set(0, number(uv.get(0).getAsDouble() + 16.0 * i));
+                }
+                result.cubes.add(cube);
+            }
+        }
+        g.dispose();
+        return result;
     }
 
     /** UVs that Java derives from the element bounds when a face has none. */
@@ -307,13 +343,20 @@ final class Model3dConverter {
         }
         double reach = Math.max(Math.max(Math.abs(min[0] - 8), Math.abs(max[0] - 8)), Math.max(Math.abs(min[2] - 8), Math.abs(max[2] - 8)));
 
+        // Bedrock draws only the first render controller of an attachable on display entities, so a model
+        // with several textures gets them merged into one atlas: one texture, one geometry, one controller.
+        List<Slot> slots = prepared.slots;
+        if (slots.size() > 1 && slots.stream().allMatch(slot -> slot.image != null)) {
+            slots = List.of(atlas(slots, "textures/models/snouli_atlas/" + Id.sanitize(key)));
+        }
+
         JsonArray geometries = new JsonArray();
         JsonObject textures = new JsonObject();
         JsonObject geometryRefs = new JsonObject();
         JsonArray controllerRefs = new JsonArray();
         JsonObject controllers = new JsonObject();
-        for (int i = 0; i < prepared.slots.size(); i++) {
-            Slot slot = prepared.slots.get(i);
+        for (int i = 0; i < slots.size(); i++) {
+            Slot slot = slots.get(i);
             String name = "t" + i;
             if (slot.image != null && copiedTextures.add(slot.bedrockPath)) {
                 out.put(slot.bedrockPath + ".png", Images.png(slot.image));
@@ -336,7 +379,7 @@ final class Model3dConverter {
 
             JsonObject description = new JsonObject();
             description.addProperty("identifier", geometryId + "." + name);
-            description.addProperty("texture_width", 16);
+            description.addProperty("texture_width", 16 * slot.cells);
             description.addProperty("texture_height", 16);
             description.add("visible_bounds_width", number(Math.ceil(reach / 8) + 2));
             description.add("visible_bounds_height", number(Math.ceil((max[1] - min[1]) / 16) + 2));
