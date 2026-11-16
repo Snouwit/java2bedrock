@@ -125,6 +125,34 @@ final class TestPack {
              "elements":[{"from":[0,0,0],"to":[8,8,8],"rotation":{"x":10,"y":20,"z":0,"origin":[8,8,8]},
                "faces":{"up":{"texture":"#0"}}}]}""");
 
+        // Armour: an equipment asset (1.21.2+) and ItemsAdder's leather strip with two sets
+        pack.text("new_overlay/assets/minecraft/items/iron_helmet.json", """
+            {"model":{"type":"range_dispatch","property":"custom_model_data","entries":[
+              {"threshold":5,"model":{"type":"model","model":"gear:item/helmet_icon"}}]}}""");
+        pack.text("new_overlay/assets/minecraft/items/leather_chestplate.json", """
+            {"model":{"type":"range_dispatch","property":"custom_model_data","entries":[
+              {"threshold":1,"model":{"type":"model","model":"gear:item/chest_icon"}}]}}""");
+        pack.text("assets/gear/models/item/helmet_icon.json", """
+            {"parent":"minecraft:item/generated","textures":{"layer0":"ia:0"}}""");
+        pack.text("assets/gear/models/item/chest_icon.json", """
+            {"parent":"minecraft:item/generated","textures":{"layer0":"ia:0"}}""");
+        pack.text("assets/gear/equipment/ruby.json", """
+            {"layers":{"humanoid":[{"texture":"gear:ruby"}],
+                       "humanoid_leggings":[{"texture":"gear:ruby","dyeable":{"color_when_undyed":-1}}]}}""");
+        pack.png("assets/gear/textures/entity/equipment/humanoid/ruby.png", solid(64, 32, 0xFFCC0033));
+        pack.png("assets/gear/textures/entity/equipment/humanoid_leggings/ruby.png", solid(64, 32, 0xFF990022));
+        BufferedImage strip = solid(256, 32, 0x00000000);
+        int[][] sets = {{1, 0xFFA06540, 0xFF111111}, {2, 0xFFFF0000, 0xFF222222}, {3, 0xFF00FF00, 0xFF333333}};
+        for (int[] set : sets) {
+            for (int y = 0; y < 32; y++) {
+                for (int x = 0; x < 64; x++) {
+                    strip.setRGB(set[0] * 64 + x, y, set[2]);
+                }
+            }
+            strip.setRGB(set[0] * 64, 0, set[1]); // colour marker
+        }
+        pack.png("assets/minecraft/textures/entity/equipment/humanoid/leather.png", strip);
+
         // Legacy overrides on an item without item definition
         pack.text("assets/minecraft/models/item/diamond_sword.json", """
             {"parent":"minecraft:item/handheld","textures":{"layer0":"minecraft:item/diamond_sword"},"overrides":[

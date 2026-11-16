@@ -5,6 +5,7 @@ import net.snouli.bedrockbridge.core.BuildInput;
 import net.snouli.bedrockbridge.core.BuildOutput;
 import net.snouli.bedrockbridge.core.DistStore;
 import net.snouli.bedrockbridge.core.IaItem;
+import net.snouli.bedrockbridge.core.ItemOptions;
 import net.snouli.bedrockbridge.core.ModelOptions;
 import net.snouli.bedrockbridge.core.PackBuilder;
 import net.snouli.bedrockbridge.core.Published;
@@ -195,7 +196,9 @@ public final class BedrockBridgePlugin extends JavaPlugin {
         }
         BuildInput input = new BuildInput(zip, getConfig().getString("pack-name", "Snouli.net"),
             new HashSet<>(getConfig().getStringList("skip-namespaces")), items, fontImages,
-            getConfig().getInt("max-glyph-size", 64), modelOptions(), message -> getLogger().warning(message));
+            getConfig().getInt("max-glyph-size", 64), modelOptions(),
+            new ItemOptions(getConfig().getBoolean("armor.enabled", true), getConfig().getBoolean("item-components", true)),
+            message -> getLogger().warning(message));
 
         getLogger().info("Baue Bedrock-Paket (" + reason + ") ...");
         Bukkit.getScheduler().runTaskAsynchronously(this, () -> build(input, signature, requester));
@@ -281,7 +284,7 @@ public final class BedrockBridgePlugin extends JavaPlugin {
         lastReport = report;
         Published current = result.published();
         String counts = current.glyphs() + " Glyphen, " + current.items() + " Items, " + current.blocks() + " Bloecke, "
-            + current.models() + " 3D-Modelle";
+            + current.models() + " 3D-Modelle, " + current.armor() + " Ruestungsteile";
         if (!result.changed()) {
             lastBuildInfo = "unveraendert (Version " + current.version() + ")";
             getLogger().info("Keine Aenderung - Version " + current.version() + " bleibt (" + counts + ", " + millis + " ms).");
@@ -339,7 +342,8 @@ public final class BedrockBridgePlugin extends JavaPlugin {
                         + " (Paket " + current.packVersion()[0] + "." + current.packVersion()[1] + "." + current.packVersion()[2]
                         + ", " + current.pack().length / 1024 + " KB)");
                     sender.sendMessage(PREFIX + current.glyphs() + " Glyphen, " + current.items() + " Items, "
-                        + current.blocks() + " Bloecke, " + current.models() + " 3D-Modelle/Moebel");
+                        + current.blocks() + " Bloecke, " + current.models() + " 3D-Modelle/Moebel, "
+                        + current.armor() + " Ruestungsteile");
                 }
                 sender.sendMessage(PREFIX + "Letzter Build: " + (building.get() ? "laeuft gerade" : lastBuildInfo));
                 sender.sendMessage(PREFIX + "HTTP-Server: " + (httpServer != null ? "Port " + httpServer.port() : ChatColor.RED + "nicht gestartet"));

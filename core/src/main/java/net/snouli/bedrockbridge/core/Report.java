@@ -12,7 +12,8 @@ public final class Report {
         GLYPH("Font-Bilder (Glyphen)"),
         ITEM("Items"),
         BLOCK("Bloecke"),
-        MODEL("3D-Modelle und Moebel");
+        MODEL("3D-Modelle und Moebel"),
+        ARMOR("Ruestungen");
 
         final String title;
 

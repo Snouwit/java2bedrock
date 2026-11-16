@@ -7,8 +7,8 @@ Macht ItemsAdder-Inhalte für Bedrock-Spieler (Geyser) sichtbar – automatisch 
 | **SnouliBedrockBridge** (Paper-Plugin) | Hub (Paper, Java 21+) | `hub-plugin/target/SnouliBedrockBridge-1.0.0.jar` |
 | **SnouliBedrockBridge-Geyser** (Geyser-Extension) | Proxy (Geyser-BungeeCord 2.12.x) | `geyser-extension/target/SnouliBedrockBridge-Geyser-1.0.0.jar` |
 
-Stand: **Phase 1** (Font-Bilder/Rang-Icons, flache 2D-Items, einfache Würfel-Blöcke) und
-**Phase 2** (3D-Modelle und Möbel). Für Möbel an Item-Displays braucht der Proxy zusätzlich die
+Stand: **Phase 1** (Font-Bilder/Rang-Icons, flache 2D-Items, einfache Würfel-Blöcke),
+**Phase 2** (3D-Modelle und Möbel) und **Phase 3** (Rüstungen, Item-Eigenschaften). Für Möbel an Item-Displays braucht der Proxy zusätzlich die
 Community-Extension **GeyserDisplayEntity**, siehe [Möbel](#möbel-und-3d-modelle-phase-2).
 
 ## Ablauf
@@ -57,6 +57,10 @@ models-3d:
   display-context: head         # display-Eintrag des Modells für Item-Displays (oder none)
   display-rotation: [0, 0, 0]   # Korrektur, falls Möbel auf Bedrock verdreht stehen
   display-translation: [0, 0, 0]
+  per-item: {}                  # Verschiebung pro Möbel, z. B. park_bench: [0, 1.5, 0]
+armor:
+  enabled: true                 # Rüstungsmodell am Körper für eigene Rüstungen
+item-components: true           # Stapelgrösse, Haltbarkeit, Essen, Glint ... übernehmen
 ```
 
 ### 2. Proxy (176.57.168.151)
@@ -102,7 +106,7 @@ werden an dieselbe Stelle in `font/glyph_XX.png` gezeichnet (16×16 Raster). Gre
 **Items.** Items mit Custom-Model-Data (aus `assets/minecraft/items/*.json` bzw. alten `overrides`) und Items
 mit `minecraft:item_model`-Component (über die ItemsAdder-API). Flache Modelle (`item/generated`,
 `item/handheld`) bekommen ihr Icon; mehrere Ebenen werden zusammengelegt. Block-Items bekommen ein flaches
-Icon. Getragene Rüstungs-Texturen sind noch nicht dabei.
+Icon. Rüstungen und Item-Eigenschaften: siehe [Phase 3](#rüstungen-und-item-eigenschaften-phase-3).
 
 **Blöcke.** Zustände von `note_block`, `brown_mushroom_block`, `red_mushroom_block`, `mushroom_stem` und
 `chorus_plant`, deren Modell ein voller Würfel mit 1–6 Texturen ist. Alles andere wird übersprungen.
@@ -150,6 +154,59 @@ das Möbel mit einem anderen Display-Kontext, `display-context` anpassen (`none`
 
 **Licht und Sitzen:** Licht kommt von ItemsAdders Licht-Block und ist auf Bedrock von selbst da. Zum Sitzen
 setzt ItemsAdder den Spieler auf ein unsichtbares Entity; das übersetzt Geyser selbst – bitte testen.
+
+## Rüstungen und Item-Eigenschaften (Phase 3)
+
+### Rüstungen
+
+Jedes eigene Rüstungsteil bekommt ein Bedrock-**Attachable**: am Körper Bedrocks eigene Rüstungs-Geometrie
+(`geometry.humanoid.armor.helmet` / `.chestplate` / `.leggings` / `.boots`) mit der Textur aus dem
+ItemsAdder-Paket, in der Hand das Icon. Erkannt werden zwei Arten:
+
+| Art | Woran erkannt | Textur |
+|---|---|---|
+| **Equipment-Asset** (ab 1.21.2) | `equippable`-Component mit `asset_id` | `assets/<ns>/equipment/<name>.json` → `textures/entity/equipment/humanoid[_leggings]/` |
+| **Gefärbte Leder-Rüstung** (ItemsAdder-Shader) | `leather_*` + `dyed_color` | 64×32-Feld im Streifen `…/equipment/humanoid[_leggings]/leather.png`, dessen erstes Pixel die Farbe trägt |
+
+Beide Texturen haben dasselbe 64×32-Layout wie Bedrock-Rüstung und werden unverändert übernommen.
+Helm, Brust und Schuhe nutzen die Ebene `humanoid`, die Hose `humanoid_leggings`.
+
+Ins Geyser-Mapping kommen der Slot (`equippable`), die Rüstungspunkte (`protection_value`, aus dem
+Attribut `armor` des Items) und die Haltbarkeit. Ohne eigene Angaben gelten die Werte des Basis-Items.
+
+Die Zuordnung Item → Textur braucht die ItemsAdder-Daten (Farbe bzw. Asset), läuft also nur auf dem Server
+vollständig. Ohne diese Daten wird ein Leder-Set nur zugeordnet, wenn das Paket genau eines enthält.
+
+**Nicht übernommen:** die Färbung färbbarer Ebenen (Bericht-Eintrag), weitere Textur-Ebenen eines
+Equipment-Assets, Rüstungs-Zähigkeit und andere Attribute (die rechnet der Java-Server).
+
+### Item-Eigenschaften
+
+Geyser übernimmt die Eigenschaften des Basis-Items von selbst (ein Custom-Item auf `diamond_sword` bleibt ein
+Schwert mit dessen Abbau- und Werkzeug-Typ). Zusätzlich gibt die Bridge weiter, was das ItemsAdder-Item
+**abweichend** setzt:
+
+| Java-Component | Bedrock |
+|---|---|
+| `max_stack_size` | Stapelgrösse (1–99) |
+| `max_damage` | Haltbarkeit (setzt die Stapelgrösse auf 1) |
+| `food`, `consumable` | essbar/trinkbar mit Sättigung und Dauer |
+| `enchantment_glint_override` | Verzauberungs-Schimmer |
+| `enchantable` | Verzauberbarkeit |
+| `equippable.slot`, Attribut `armor` | Rüstungs-Slot und Rüstungspunkte |
+| Modell mit `item/handheld` | `display_handheld` (wird wie ein Werkzeug gehalten) |
+
+Anzeigenamen: Hex-Farben (`§x§R§R§G§G§B§B`, `&#RRGGBB`) werden zur nächsten der 16 Bedrock-Farben.
+
+Der Bericht nennt pro Item, was übernommen wurde (`[2D; Stapel 16, Essen 6, trinkbar]`), und warnt, wenn ein
+Item Dinge setzt, die Bedrock nicht erfährt (Angriffsschaden und andere Attribute, eigene Werkzeug-Regeln,
+Abklingzeit). Diese Werte rechnet weiterhin der Java-Server; nur die Anzeige auf Bedrock fehlt.
+
+### Testen
+
+1. `/iazip` oder `/bedrockpack build` auf dem Hub, `/bedrockpack report` zeigt die Kategorie „Ruestungen“.
+2. Proxy neu starten (neue Items brauchen den Neustart).
+3. Der Bedrock-Spieler muss **den Server verlassen und neu joinen**, sonst behält Bedrock das alte Paket.
 
 ## Bauen
 

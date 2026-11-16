@@ -39,6 +39,7 @@ final class ItemConverter {
     private final BuildInput input;
     private final Report report;
     private final Model3dConverter model3d;
+    private final ArmorConverter armorConverter;
 
     private final Map<String, IaItem> byCustomModelData = new HashMap<>();
     private final Set<String> usedIdentifiers = new HashSet<>();
@@ -52,6 +53,7 @@ final class ItemConverter {
         this.input = input;
         this.report = report;
         this.model3d = new Model3dConverter(models, input, report);
+        this.armorConverter = new ArmorConverter(pack, report);
         for (IaItem item : input.items()) {
             if (item.customModelData() != null && item.material() != null) {
                 byCustomModelData.putIfAbsent(Id.parse(item.material()) + "#" + item.customModelData(), item);
@@ -265,18 +267,35 @@ final class ItemConverter {
             g.dispose();
         }
 
+        ItemProperties properties = properties(ia);
+        ArmorConverter.Armor armor = input.itemOptions().armor() && resolved.elements == null
+            ? armorConverter.find(candidate.vanillaItem(), properties, label) : null;
+        Report.Kind reportKind = armor != null ? Report.Kind.ARMOR : Report.Kind.ITEM;
+
         Id identity = identity(ia, model);
         String identifier = allocateIdentifier(identity, candidate);
         String iconName = putIcon(out, identifier, icon);
-        addDefinition(candidate, ia, identity, identifier, iconName, handheld);
+        if (armor != null) {
+            armorConverter.write(out, armor, identifier, textureData.get(iconName), resolved.display);
+        }
+        List<String> taken = addDefinition(candidate, ia, identity, identifier, iconName, handheld, properties, label, reportKind);
 
-        report.converted(Report.Kind.ITEM, label, identifier + " [" + kind + "]");
+        if (armor != null) {
+            taken.add(0, "Ruestungsmodell (" + armor.source() + ")");
+            for (String note : armor.notes()) {
+                report.warning(reportKind, label, note);
+            }
+        } else if (input.itemOptions().armor() && ia == null && ArmorConverter.slotOf(candidate.vanillaItem()) != null) {
+            report.warning(reportKind, label, "Ruestungsteil ohne erkennbare eigene Textur - am Koerper sieht Bedrock"
+                + " das Basis-Item. Mit ItemsAdder-Daten (auf dem Server) wird die Textur zugeordnet.");
+        }
+        report.converted(reportKind, label, identifier + " [" + kind + details(taken) + "]");
         if (images.size() > 1) {
-            report.warning(Report.Kind.ITEM, label, images.size() + " Textur-Ebenen wurden zu einem Icon zusammengelegt"
+            report.warning(reportKind, label, images.size() + " Textur-Ebenen wurden zu einem Icon zusammengelegt"
                 + " (Bedrock-Icons haben eine Ebene; einfaerbbare Ebenen bleiben ungefaerbt).");
         }
         if (animated) {
-            report.warning(Report.Kind.ITEM, label, "animierte Textur: nur das erste Bild wird verwendet.");
+            report.warning(reportKind, label, "animierte Textur: nur das erste Bild wird verwendet.");
         }
     }
 
@@ -299,10 +318,11 @@ final class ItemConverter {
         String identifier = allocateIdentifier(identity, candidate);
         String iconName = putIcon(out, identifier, model3d.icon(prepared));
         model3d.write(out, prepared, identifier, candidate.vanillaItem());
-        addDefinition(candidate, ia, identity, identifier, iconName, false);
+        List<String> taken = addDefinition(candidate, ia, identity, identifier, iconName, false, properties(ia), label,
+            Report.Kind.MODEL);
 
         report.converted(Report.Kind.MODEL, label, identifier + " [" + (ia != null && ia.furniture() ? "Moebel" : "3D-Modell")
-            + ", " + prepared.summary() + "]");
+            + ", " + prepared.summary() + details(taken) + "]");
         for (String warning : prepared.warnings()) {
             report.warning(Report.Kind.MODEL, label, warning);
         }
@@ -346,13 +366,98 @@ final class ItemConverter {
         return iconName;
     }
 
-    private void addDefinition(Candidate candidate, IaItem ia, Id identity, String identifier, String iconName,
-                               boolean handheld) {
+    private ItemProperties properties(IaItem ia) {
+        return ia == null || ia.components() == null ? ItemProperties.NONE : ItemProperties.parse(ia.components());
+    }
+
+    private static String details(List<String> taken) {
+        return taken.isEmpty() ? "" : "; " + String.join(", ", taken);
+    }
+
+    /**
+     * Adds the Geyser definition of an item.
+     *
+     * <p>Geyser starts from the components of the vanilla base item, so only what the item changes
+     * has to be written: tools keep their type and speed, armour its slot, food its values.
+     *
+     * @return what was carried over from the Java item, for the report
+     */
+    private List<String> addDefinition(Candidate candidate, IaItem ia, Id identity, String identifier, String iconName,
+                                       boolean handheld, ItemProperties properties, String label, Report.Kind kind) {
+        List<String> taken = new ArrayList<>();
         JsonObject options = new JsonObject();
         options.addProperty("icon", iconName);
         options.addProperty("allow_offhand", true);
         if (handheld) {
             options.addProperty("display_handheld", true);
+            taken.add("in der Hand wie ein Werkzeug");
+        }
+
+        JsonObject components = new JsonObject();
+        if (input.itemOptions().components() && !properties.isEmpty()) {
+            if (properties.armor != null) {
+                options.addProperty("protection_value", properties.armor);
+                taken.add("Ruestungspunkte " + properties.armor);
+            }
+            if (properties.equipSlot != null) {
+                JsonObject equippable = new JsonObject();
+                equippable.addProperty("slot", properties.equipSlot);
+                components.add("minecraft:equippable", equippable);
+                taken.add("Slot " + properties.equipSlot);
+            }
+            Integer stack = properties.maxStackSize;
+            if (properties.maxDamage != null && properties.maxDamage > 0) {
+                components.addProperty("minecraft:max_damage", properties.maxDamage);
+                taken.add("Haltbarkeit " + properties.maxDamage);
+                stack = 1; // Java and Geyser both require unstackable items for durability
+            }
+            if (stack != null) {
+                int size = Math.max(1, Math.min(99, stack));
+                components.addProperty("minecraft:max_stack_size", size);
+                taken.add("Stapel " + size);
+            }
+            if (properties.nutrition != null || properties.saturation != null) {
+                JsonObject food = new JsonObject();
+                food.addProperty("nutrition", properties.nutrition == null ? 0 : Math.max(0, properties.nutrition));
+                food.addProperty("saturation", properties.saturation == null ? 0 : Math.max(0, properties.saturation));
+                if (properties.canAlwaysEat != null) {
+                    food.addProperty("can_always_eat", properties.canAlwaysEat);
+                }
+                components.add("minecraft:food", food);
+                taken.add("Essen " + food.get("nutrition").getAsInt());
+                if (!properties.consumable && !EDIBLE_HINTS.contains(candidate.vanillaItem().path())) {
+                    report.warning(kind, label, "hat Essens-Werte, aber kein 'consumable' - ist das Basis-Item nicht"
+                        + " essbar, kann man es auch auf Bedrock nicht essen.");
+                }
+            }
+            if (properties.consumable) {
+                JsonObject consumable = new JsonObject();
+                if (properties.consumeSeconds != null && properties.consumeSeconds > 0) {
+                    consumable.addProperty("consume_seconds", properties.consumeSeconds);
+                }
+                if (properties.consumeAnimation != null) {
+                    consumable.addProperty("animation", properties.consumeAnimation);
+                }
+                components.add("minecraft:consumable", consumable);
+                taken.add("drink".equals(properties.consumeAnimation) ? "trinkbar" : "essbar");
+            }
+            if (properties.glint != null) {
+                components.addProperty("minecraft:enchantment_glint_override", properties.glint);
+                taken.add(properties.glint ? "Glint" : "kein Glint");
+            }
+            if (properties.enchantable != null && properties.enchantable > 0) {
+                components.addProperty("minecraft:enchantable", properties.enchantable);
+                taken.add("verzauberbar " + properties.enchantable);
+            }
+            for (String removable : new String[] {"food", "consumable", "equippable", "enchantable"}) {
+                if (properties.removes(removable)) {
+                    components.addProperty("!minecraft:" + removable, true);
+                }
+            }
+            if (!properties.serverSideOnly.isEmpty()) {
+                report.warning(kind, label, "nicht an Bedrock uebergeben (rechnet der Java-Server): "
+                    + String.join("; ", properties.serverSideOnly));
+            }
         }
 
         JsonObject definition = new JsonObject();
@@ -366,12 +471,23 @@ final class ItemConverter {
         definition.addProperty("bedrock_identifier", identifier);
         definition.addProperty("display_name", displayName(ia, identity));
         definition.add("bedrock_options", options);
+        if (components.size() > 0) {
+            definition.add("components", components);
+        }
         definitions.computeIfAbsent(candidate.vanillaItem().toString(), k -> new JsonArray()).add(definition);
+        return taken;
     }
+
+    /** Vanilla base items that are edible anyway (no warning needed for food values without consumable). */
+    private static final Set<String> EDIBLE_HINTS = Set.of("apple", "bread", "cookie", "cooked_beef", "beef", "porkchop",
+        "cooked_porkchop", "carrot", "golden_carrot", "golden_apple", "potato", "baked_potato", "melon_slice",
+        "sweet_berries", "glow_berries", "pumpkin_pie", "mushroom_stew", "rabbit_stew", "beetroot_soup", "suspicious_stew",
+        "honey_bottle", "potion", "milk_bucket", "dried_kelp", "chicken", "cooked_chicken", "mutton", "cooked_mutton",
+        "cod", "cooked_cod", "salmon", "cooked_salmon", "tropical_fish", "rotten_flesh", "chorus_fruit", "beetroot");
 
     private static String displayName(IaItem ia, Id identity) {
         if (ia != null && ia.displayName() != null && !ia.displayName().isBlank()) {
-            return ia.displayName();
+            return BedrockText.downsampleHex(ia.displayName());
         }
         StringBuilder name = new StringBuilder();
         for (String word : identity.name().split("_")) {

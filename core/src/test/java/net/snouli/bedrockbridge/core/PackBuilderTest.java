@@ -261,7 +261,7 @@ class PackBuilderTest {
 
     @Test
     void skipNamespacesLeavesContentOut() throws IOException {
-        BuildOutput built = PackBuilder.build(new BuildInput(zip, "Test", Set.of("shop", "ranks", "deco"), List.of(),
+        BuildOutput built = PackBuilder.build(new BuildInput(zip, "Test", Set.of("shop", "ranks", "deco", "gear"), List.of(),
             Map.of(), 64, ModelOptions.defaults(), message -> {}));
         assertEquals(0, built.report().convertedCount(Report.Kind.ITEM));
         assertEquals(0, built.report().convertedCount(Report.Kind.BLOCK));

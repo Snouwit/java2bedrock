@@ -12,7 +12,13 @@ package net.snouli.bedrockbridge.core;
  * @param block           true for custom blocks
  * @param furniture       true for furniture (handled in phase 2)
  * @param blockState      Java block state of a custom block, e.g. {@code minecraft:note_block[...]}, or {@code null}
+ * @param components      the item's component patch as text ({@code ItemMeta#getAsComponentString()}), or {@code null}
  */
 public record IaItem(String namespacedId, String displayName, String material, Integer customModelData,
-                     String itemModel, boolean block, boolean furniture, String blockState) {
+                     String itemModel, boolean block, boolean furniture, String blockState, String components) {
+
+    public IaItem(String namespacedId, String displayName, String material, Integer customModelData,
+                  String itemModel, boolean block, boolean furniture, String blockState) {
+        this(namespacedId, displayName, material, customModelData, itemModel, block, furniture, blockState, null);
+    }
 }

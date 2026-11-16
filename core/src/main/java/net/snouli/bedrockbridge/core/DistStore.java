@@ -58,7 +58,8 @@ public final class DistStore {
                 new int[] {packVersion.get(0).getAsInt(), packVersion.get(1).getAsInt(), packVersion.get(2).getAsInt()},
                 pack, packSha1, mappings, mappingsSha1, versionJson,
                 counts.get("glyphs").getAsInt(), counts.get("items").getAsInt(), counts.get("blocks").getAsInt(),
-                counts.has("models") ? counts.get("models").getAsInt() : 0);
+                counts.has("models") ? counts.get("models").getAsInt() : 0,
+                counts.has("armor") ? counts.get("armor").getAsInt() : 0);
         } catch (IOException | RuntimeException e) {
             return null;
         }
@@ -122,6 +123,7 @@ public final class DistStore {
         counts.addProperty("items", report.convertedCount(Report.Kind.ITEM));
         counts.addProperty("blocks", report.convertedCount(Report.Kind.BLOCK));
         counts.addProperty("models", report.convertedCount(Report.Kind.MODEL));
+        counts.addProperty("armor", report.convertedCount(Report.Kind.ARMOR));
         versionJson.add("counts", counts);
         byte[] versionBytes = BedrockPack.GSON.toJson(versionJson).getBytes(StandardCharsets.UTF_8);
 
@@ -137,7 +139,7 @@ public final class DistStore {
 
         Published published = new Published(version, builtAt, packVersion, pack, packSha1, mappings, mappingsSha1,
             versionBytes, counts.get("glyphs").getAsInt(), counts.get("items").getAsInt(), counts.get("blocks").getAsInt(),
-            counts.get("models").getAsInt());
+            counts.get("models").getAsInt(), counts.get("armor").getAsInt());
         return new Result(published, packChanged, mappingsChanged);
     }
 

@@ -498,7 +498,7 @@ final class Model3dConverter {
         converted++;
     }
 
-    private static JsonObject bone(String name, String parent, String binding) {
+    static JsonObject bone(String name, String parent, String binding) {
         JsonObject bone = new JsonObject();
         bone.addProperty("name", name);
         if (parent != null) {
@@ -511,7 +511,7 @@ final class Model3dConverter {
         return bone;
     }
 
-    private static JsonObject root(double[] rotation, double[] position, Double scale) {
+    static JsonObject root(double[] rotation, double[] position, Double scale) {
         JsonObject bone = new JsonObject();
         if (rotation != null) {
             bone.add("rotation", numbers(rotation));
@@ -530,7 +530,7 @@ final class Model3dConverter {
      *
      * @param sx sy sz factors for the translation (Bedrock mirrors some axes; heads are scaled by 0.625)
      */
-    private static JsonObject[] transform(JsonObject display, String context, String fallback, double sx, double sy,
+    static JsonObject[] transform(JsonObject display, String context, String fallback, double sx, double sy,
                                           double sz, boolean firstPerson) {
         JsonObject entry = null;
         if (display != null) {
@@ -565,7 +565,7 @@ final class Model3dConverter {
         return new JsonObject[] {x, y, z};
     }
 
-    private static JsonObject animation(JsonObject root, JsonObject[] xyz) {
+    static JsonObject animation(JsonObject root, JsonObject[] xyz) {
         JsonObject bones = new JsonObject();
         bones.add("geyser_custom", root);
         String[] names = {"geyser_custom_x", "geyser_custom_y", "geyser_custom_z"};
@@ -817,6 +817,10 @@ final class Model3dConverter {
         return "[" + number(values[0]) + ", " + number(values[1]) + ", " + number(values[2]) + "]";
     }
 
+    static JsonObject parse(String json) {
+        return com.google.gson.JsonParser.parseString(json).getAsJsonObject();
+    }
+
     private static double[] vector(JsonElement element) {
         if (!(element instanceof JsonArray array) || array.size() != 3) {
             return null;
@@ -837,7 +841,7 @@ final class Model3dConverter {
         return new com.google.gson.JsonPrimitive(rounded);
     }
 
-    private static JsonArray numbers(double... values) {
+    static JsonArray numbers(double... values) {
         JsonArray array = new JsonArray();
         for (double value : values) {
             array.add(number(value));

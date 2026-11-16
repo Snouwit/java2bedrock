@@ -64,7 +64,14 @@ final class ItemsAdderBridge implements Listener {
                 ItemMeta meta = itemStack.getItemMeta();
                 Integer customModelData = null;
                 String itemModel = null;
+                String components = null;
                 if (meta != null) {
+                    try {
+                        // The component patch as text: stable across server versions, parsed by the core
+                        components = meta.getAsComponentString();
+                    } catch (Throwable ignored) {
+                        // server older than 1.20.5: no item properties, the rest still works
+                    }
                     if (meta.hasCustomModelData()) {
                         customModelData = meta.getCustomModelData();
                     }
@@ -94,7 +101,7 @@ final class ItemsAdderBridge implements Listener {
                     // older ItemsAdder
                 }
                 items.add(new IaItem(id, stack.getDisplayName(), itemStack.getType().getKey().toString(),
-                    customModelData, itemModel, stack.isBlock(), furniture, blockState));
+                    customModelData, itemModel, stack.isBlock(), furniture, blockState, components));
             } catch (Throwable t) {
                 failed++;
             }

@@ -39,3 +39,14 @@ models-3d:
   # fuer dieses Moebel. Name = ItemsAdder-ID (snouli:park_bench) oder nur park_bench.
   per-item: {}
   #  park_bench: [0, 1.5, 0]
+
+# Ruestungen (Phase 3): eigene Ruestungen bekommen auf Bedrock ein Ruestungsmodell am Koerper.
+# Erkannt werden ItemsAdder-Ruestungen mit Equipment-Asset und gefaerbte Leder-Ruestungen mit
+# eigener Textur. false = Ruestungen bleiben flache Items.
+armor:
+  enabled: true
+
+# Item-Eigenschaften aus ItemsAdder an Bedrock weitergeben: Stapelgroesse, Haltbarkeit,
+# Essen/Trinken, Verzauberungs-Schimmer, Verzauberbarkeit, Ruestungspunkte und Ruestungs-Slot.
+# false = Bedrock uebernimmt alles vom Basis-Item.
+item-components: true
