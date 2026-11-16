@@ -35,3 +35,7 @@ models-3d:
   # Beispiel: Moebel stehen verkehrt herum -> display-rotation: [0, 180, 0]
   display-rotation: [0, 0, 0]
   display-translation: [0, 0, 0]
+  # Eigene Verschiebung [x, y, z] in Bloecken fuer einzelne Moebel. Ersetzt display-translation
+  # fuer dieses Moebel. Name = ItemsAdder-ID (snouli:park_bench) oder nur park_bench.
+  per-item: {}
+  #  park_bench: [0, 1.5, 0]

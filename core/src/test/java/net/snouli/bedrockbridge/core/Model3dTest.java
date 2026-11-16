@@ -231,6 +231,14 @@ class Model3dTest {
         assertTrue(yaml.contains("rotation: [0, 180, 0]"));
         assertTrue(yaml.contains("translation: [0, 0.5, 0]"));
 
+        ModelOptions perItem = new ModelOptions(true, "head", new double[3], new double[] {0, 0.5, 0},
+            Map.of("bench", new double[] {0, 1.5, 0}));
+        String perItemYaml = PackBuilder.build(new BuildInput(zip, "Test", Set.of(), List.of(), Map.of(), 64, perItem, m -> {}))
+            .mappings().get("display_entities").getAsString();
+        assertTrue(perItemYaml.contains("translation: [0, 1.5, 0]"), perItemYaml);
+        assertEquals("[0.0, 1.5, 0.0]", java.util.Arrays.toString(perItem.translationFor("snouli:deco/bench")));
+        assertEquals("[0.0, 0.5, 0.0]", java.util.Arrays.toString(perItem.translationFor("snouli:deco/lamp")));
+
         ModelOptions off = new ModelOptions(false, "head", new double[3], new double[3]);
         BuildOutput disabled = PackBuilder.build(new BuildInput(zip, "Test", Set.of(), List.of(), Map.of(), 64, off, m -> {}));
         assertEquals(0, disabled.report().convertedCount(Report.Kind.MODEL));

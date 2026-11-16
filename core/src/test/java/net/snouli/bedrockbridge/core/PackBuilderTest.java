@@ -80,9 +80,10 @@ class PackBuilderTest {
         // U+E100: row 0, column 0 - a square icon fills its cell
         assertEquals(0xFFFF0000, sheet.getRGB(1, 1));
         assertEquals(0xFFFF0000, sheet.getRGB(cell - 2, cell - 2));
-        // U+E1A5: row A, column 5 - wide image is fitted to the cell width
-        assertEquals(0xFF00FF00, sheet.getRGB(5 * cell + 1, 10 * cell + 1));
-        assertEquals(0xFF00FF00, sheet.getRGB(6 * cell - 2, 10 * cell + 1));
+        // U+E1A5: row A, column 5 - wide image is fitted to the cell width and centred vertically
+        assertEquals(0xFF00FF00, sheet.getRGB(5 * cell + 1, 10 * cell + cell / 2));
+        assertEquals(0xFF00FF00, sheet.getRGB(6 * cell - 2, 10 * cell + cell / 2));
+        assertEquals(0, sheet.getRGB(5 * cell + 1, 10 * cell + 1) >>> 24);
         assertEquals(0, sheet.getRGB(5 * cell + 1, 11 * cell - 2) >>> 24);
         // neighbouring cells stay empty
         assertEquals(0, sheet.getRGB(cell + 1, 1) >>> 24);

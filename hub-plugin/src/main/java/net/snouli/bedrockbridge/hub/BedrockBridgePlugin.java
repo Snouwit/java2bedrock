@@ -205,7 +205,19 @@ public final class BedrockBridgePlugin extends JavaPlugin {
     private ModelOptions modelOptions() {
         return new ModelOptions(getConfig().getBoolean("models-3d.enabled", true),
             getConfig().getString("models-3d.display-context", "head"),
-            vector("models-3d.display-rotation"), vector("models-3d.display-translation"));
+            vector("models-3d.display-rotation"), vector("models-3d.display-translation"), itemTranslations());
+    }
+
+    /** {@code models-3d.per-item: { park_bench: [0, 1.5, 0] }} */
+    private java.util.Map<String, double[]> itemTranslations() {
+        java.util.Map<String, double[]> result = new java.util.HashMap<>();
+        org.bukkit.configuration.ConfigurationSection section = getConfig().getConfigurationSection("models-3d.per-item");
+        if (section != null) {
+            for (String key : section.getKeys(false)) {
+                result.put(key, vector("models-3d.per-item." + key));
+            }
+        }
+        return result;
     }
 
     private double[] vector(String path) {

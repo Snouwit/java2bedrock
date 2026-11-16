@@ -197,7 +197,16 @@ final class ItemConverter {
         String kind;
         if (resolved.elements != null) {
             Map<String, Id> faces = BlockConverter.cubeFaces(models, resolved);
-            if (faces == null) {
+            // Furniture always needs the 3D model (an item display shows it, not an icon), and so does
+            // a cube that uses vanilla textures - those exist on Bedrock only for 3D models.
+            boolean furniture = ia != null && ia.furniture();
+            boolean vanillaFace = false;
+            if (faces != null && !furniture) {
+                for (Id face : faces.values()) {
+                    vanillaFace |= models.loadTexture(face) == null;
+                }
+            }
+            if (faces == null || furniture || vanillaFace) {
                 convert3d(out, candidate, ia, resolved, label);
                 return;
             }

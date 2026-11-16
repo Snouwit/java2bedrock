@@ -187,6 +187,11 @@ final class GlyphConverter {
             // Java draws the top of a glyph (ascent) pixels above the baseline, which sits 7px below the
             // line top. Shift by one so the common "height 9, ascent 8" icon starts at the cell top.
             double top = Math.max(0, Math.min(reference - glyph.height(), 8 - glyph.ascent()));
+            // Wide images (e.g. rank tags 41x9) only fill the top part of the square Bedrock cell and
+            // would float above the text. Centre them vertically so they sit on the text line.
+            if (reference > Math.max(glyph.height(), LINE_HEIGHT)) {
+                top = (reference - glyph.height()) / 2.0;
+            }
             int x = (glyph.codePoint() & 0xF) * cell;
             int y = ((glyph.codePoint() >> 4) & 0xF) * cell + (int) Math.min(cell - height, Math.round(top * unit));
             g.drawImage(Images.scale(glyph.image(), width, height), x, y, null);

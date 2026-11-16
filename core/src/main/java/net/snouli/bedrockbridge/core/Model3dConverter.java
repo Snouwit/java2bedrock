@@ -762,8 +762,9 @@ final class Model3dConverter {
             if (nonZero(options.displayRotation())) {
                 yaml.append("      rotation: ").append(list(options.displayRotation())).append('\n');
             }
-            if (nonZero(options.displayTranslation())) {
-                yaml.append("      translation: ").append(list(options.displayTranslation())).append('\n');
+            double[] translation = options.translationFor(entry.getValue()[1]);
+            if (nonZero(translation)) {
+                yaml.append("      translation: ").append(list(translation)).append('\n');
             }
         }
         return yaml.toString();
